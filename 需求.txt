@@ -1,0 +1,39 @@
+“请帮我用 Streamlit 设计一个简洁、具有 Apple 设计风格的 Web UI，用于测试和可视化 V5 防逆流控制算法。避免 Streamlit 的默认朴素外观。
+设计原则 (分享Apple)：
+简洁的布局：大量留白，st.columns组织提出。
+清晰字体：简洁默认字体。
+交互交互：控件标签清晰，侧边栏(参数)与主区域(结果)分离。
+精致细节：图形线条整洁、颜色柔和（参考V5调色板），按钮简洁。
+界面核心功能：
+数据上传： st.file_uploader。
+参数设置(侧边栏st.sidebar)：
+Buffer, R_up, R_down, Alpha(使用st.slider/ st.number_input)。
+(任选) S_down_max( st.checkbox+ st.number_input)。
+(任选) STUKF 参数 ( st.expander)。
+运行按钮： st.button (“运行模拟”)。
+结果展示（主区域-运行后显示）：
+A. 关键指标关联（参考image_905a44.png）：
+使用st.columns创建一行或两行对应布局。
+每个动作使用st.metric或st.markdown+相似CSS（如果使用自定义CSS）清晰显示关键性能指标（KPI），例如：
+“总弃光量 (kWh 或 %)”
+“最大弃光功率 (kW)”
+“安全旁路触发次数”
+“平均/最大上调速率（kW/s）”
+“平均/最大减速速率 (kW/s)”
+B.时间序列对比图（参考image_905a7a.png）：
+使用Plotly ( st.plotly_chart) 生成一个交互式的时间序列图。
+必须轮廓的轮廓：
+原始总负载L_t(例如：灰色细线)。
+最终的光伏限价指令P_cmd（如：主色调粗线，如V5调色板的深青色）。
+(任选，用于调试)可通过表单 ( st.checkbox) 控制是否显示：
+STUKF 提示的L_med和L_lb（例如：虚线）。
+计算出的安全上限U_A和性能上限U_B（例如：不同颜色的虚线）。
+图表风格简洁，坐标轴标签清晰，悬停提示信息有用。
+C.（任选）分布统计图（参考image_905aa0.png）：
+如果需要，可以添加一个直方图(Histogram) 或箱线图(Boxplot)，例如：
+展示放弃光功率的分配情况。
+显示P_cmd变化速率的分布情况。
+同样使用 Plotly ( st.plotly_chart)，风格保持简洁。
+额外要求：
+(线条使用)可通过少量自定义CSS调整样式、图表边距等，以提升整体精致感。
+最终目标：一个现代、简洁、直观，且能清晰显示V5算法的Streamlit工具界面的关键成果。”

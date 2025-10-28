@@ -1,0 +1,19 @@
+# V5 防逆流控制系统依赖包
+
+# 核心框架
+streamlit==1.31.0
+
+# 数据处理
+numpy==1.24.3
+pandas==2.0.3
+scipy==1.11.4
+
+# 可视化
+plotly==5.18.0
+
+# Excel 支持
+openpyxl==3.1.2
+xlrd==2.0.1
+
+# 其他工具
+python-dateutil==2.8.2
