@@ -48,3 +48,12 @@ Thumbs.db
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp

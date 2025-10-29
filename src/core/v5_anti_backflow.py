@@ -6,7 +6,7 @@ V5 Anti-Backflow Control Algorithm
 import numpy as np
 from typing import Tuple, Optional, Dict, List
 from dataclasses import dataclass
-from stukf import STUKF
+from .stukf import STUKF
 
 
 @dataclass
@@ -14,6 +14,8 @@ class ControlParams:
     """控制参数"""
     buffer: float = 5.0  # 安全余量 (kW)
     use_buffer: bool = True  # 是否启用Buffer（插件）
+    use_safety_ceiling: bool = True  # 是否使用安全上界（False时仅用性能上界）
+    adaptive_safety: bool = True  # 是否使用自适应安全上界策略
     R_up: float = 10.0  # 上行斜率限制 (kW/s)
     R_down: float = 50.0  # 下行斜率限制 (kW/s)
     alpha: float = 1e-3  # 置信度参数
@@ -81,6 +83,7 @@ class V5AntiBackflowController:
         self.P_cmd_prev = 0.0  # 上一次的指令
         self.time_prev = 0.0  # 上一次的时间
         self.current_time = 0.0
+        self.L_prev = initial_load  # 上一次的负载测量值（用于急降检测）
 
         # 记录历史
         self.history: Dict[str, List] = {
@@ -158,11 +161,23 @@ class V5AntiBackflowController:
             L_med, L_lb = self.stukf.predict_ahead(H, confidence=1 - self.params.alpha)
 
         # === 计算安全上界 ===
-        # 根据use_buffer决定是否减去Buffer
-        if self.params.use_buffer:
-            U_A2 = max(0, L_lb - self.params.buffer)
+        # 自适应策略 vs 传统策略
+        if self.params.adaptive_safety and self.params.use_buffer:
+            # 自适应安全上界：低负载时使用相对buffer，高负载时使用绝对buffer
+            buffer_threshold = 2 * self.params.buffer
+
+            if L_lb < buffer_threshold:
+                # 低负载场景：使用相对buffer（保留20%安全余量）
+                U_A2 = max(0, L_lb * 0.8)
+            else:
+                # 高负载场景：使用绝对buffer
+                U_A2 = max(0, L_lb - self.params.buffer)
         else:
-            U_A2 = max(0, L_lb)
+            # 传统策略：根据use_buffer决定是否减去Buffer
+            if self.params.use_buffer:
+                U_A2 = max(0, L_lb - self.params.buffer)
+            else:
+                U_A2 = max(0, L_lb)
 
         # 确定性安全上界（如果提供了 S_down_max）
         if self.params.S_down_max is not None:
@@ -234,8 +249,13 @@ class V5AntiBackflowController:
         # 2. 计算性能上界
         U_B = self._compute_performance_ceiling(L_med)
 
-        # 3. 应用物理约束
-        U = min(U_A, self.params.P_max)
+        # 3. 应用物理约束（根据 use_safety_ceiling 决定是否使用安全上界）
+        if self.params.use_safety_ceiling:
+            # 使用安全上界
+            U = min(U_A, self.params.P_max)
+        else:
+            # 不使用安全上界，仅受物理限制
+            U = self.params.P_max
 
         # 4. 检查上行意图
         upward_intent = self._check_upward_intent(U, L_med)
@@ -244,12 +264,30 @@ class V5AntiBackflowController:
         if upward_intent:
             U = min(U, U_B)
 
+        # === 紧急安全机制：负载急降检测（独立于安全上界开关） ===
+        emergency_triggered = False
+        if self.params.S_down_max is not None:
+            # 计算负载变化率
+            dL = L_t - self.L_prev
+            dL_dt = dL / dt if dt > 0 else 0
+
+            # 如果负载下降速度超过阈值，触发紧急限制
+            if dL_dt < -self.params.S_down_max:
+                # 紧急限制：PV输出不超过当前负载（减去buffer）
+                if self.params.use_buffer:
+                    U_emergency = max(0, L_t - self.params.buffer)
+                else:
+                    U_emergency = max(0, L_t)
+
+                U = min(U, U_emergency)
+                emergency_triggered = True  # 标记为触发了紧急旁路
+
         # 5. 计算限速边界
         U_ramp = self.P_cmd_prev + self.params.R_up * dt
         L_ramp = self.P_cmd_prev - self.params.R_down * dt
 
         # 6. 应用控制律
-        safety_bypass = False
+        safety_bypass = emergency_triggered  # 初始化为紧急旁路状态
 
         if U < self.P_cmd_prev:
             # 安全旁路：立即下调
@@ -269,6 +307,7 @@ class V5AntiBackflowController:
         self.P_cmd_prev = P_cmd
         self.time_prev = time
         self.current_time = time
+        self.L_prev = L_t  # 更新上一次负载值，用于下次急降检测
 
         # 创建输出
         output = ControlOutput(

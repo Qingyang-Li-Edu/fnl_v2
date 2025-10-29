@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(pip install:*)",
+      "Bash(uv run python:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(bash:*)",
+      "Bash(taskkill //F //PID 5668)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
