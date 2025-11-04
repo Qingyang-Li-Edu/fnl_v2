@@ -17,6 +17,7 @@ import numpy as np
 from src.core import ControlParams
 from src.ui.styles import MATERIAL_STYLE_CSS, get_material_colors
 from src.ui.components import create_metric_card
+from src.ui.theme import get_dark_theme_css, get_theme_toggle_button, get_theme_toggle_script
 from src.utils import load_data, generate_sample_data, run_simulation, compute_metrics
 from src.ui.visualization import (
     create_time_series_plot,
@@ -24,6 +25,7 @@ from src.ui.visualization import (
     create_curtailment_analysis,
     create_control_effectiveness_plot
 )
+from src.ui.dashboard import create_dashboard_view
 
 # 页面配置
 st.set_page_config(
@@ -41,7 +43,54 @@ colors = get_material_colors()
 def render_sidebar():
     """渲染侧边栏参数设置"""
     with st.sidebar:
-        st.markdown('<h2><span class="material-icons" style="vertical-align: middle; margin-right: 8px;">settings</span>参数设置</h2>', unsafe_allow_html=True)
+        # 主题切换（放在最顶部，独立区域）
+        st.markdown("---")
+        dark_mode = st.checkbox(
+            "🌙 深色模式",
+            value=st.session_state.get('dark_mode', False),
+            key='dark_mode_toggle',
+            help="点击切换深色/浅色主题"
+        )
+        if dark_mode != st.session_state.get('dark_mode', False):
+            st.session_state['dark_mode'] = dark_mode
+            st.rerun()
+        st.markdown("---")
+
+        st.markdown('<h2 style="margin-bottom: 0;"><span class="material-icons" style="vertical-align: middle; margin-right: 8px;">settings</span>参数设置</h2>', unsafe_allow_html=True)
+
+        # 快速预设配置
+        st.markdown('<div style="background: linear-gradient(135deg, rgba(26, 115, 232, 0.08) 0%, rgba(66, 133, 244, 0.12) 100%); border-radius: 8px; padding: 16px; margin-bottom: 20px; border: 2px solid rgba(26, 115, 232, 0.2);">', unsafe_allow_html=True)
+        st.markdown('<h3 style="margin-top: 0; font-size: 1.125rem;"><span class="material-icons" style="font-size: 1.25rem; vertical-align: middle; margin-right: 6px;">rocket_launch</span>快速预设</h3>', unsafe_allow_html=True)
+
+        col_preset1, col_preset2, col_preset3 = st.columns(3)
+        with col_preset1:
+            aggressive_mode = st.button("🔥 激进", help="最大化光伏利用率，关闭安全上界", use_container_width=True)
+        with col_preset2:
+            balanced_mode = st.button("⚖️ 平衡", help="平衡性能与安全", use_container_width=True)
+        with col_preset3:
+            conservative_mode = st.button("🛡️ 保守", help="最大化安全性，启用所有保护", use_container_width=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # 应用预设
+        if 'preset_applied' not in st.session_state:
+            st.session_state['preset_applied'] = None
+
+        if aggressive_mode:
+            st.session_state['preset_applied'] = 'aggressive'
+            st.session_state['use_safety_ceiling'] = False
+            st.session_state['use_buffer'] = False
+            st.session_state['confidence'] = 95.0
+        elif balanced_mode:
+            st.session_state['preset_applied'] = 'balanced'
+            st.session_state['use_safety_ceiling'] = True
+            st.session_state['use_buffer'] = True
+            st.session_state['confidence'] = 99.0
+        elif conservative_mode:
+            st.session_state['preset_applied'] = 'conservative'
+            st.session_state['use_safety_ceiling'] = True
+            st.session_state['use_buffer'] = True
+            st.session_state['confidence'] = 99.9
 
         # 数据输入
         st.markdown('<h3><span class="material-icons" style="font-size: 1.25rem; vertical-align: middle; margin-right: 8px;">folder_open</span>数据输入</h3>', unsafe_allow_html=True)
@@ -75,17 +124,22 @@ def render_sidebar():
         # 控制参数
         st.markdown('<h3><span class="material-icons" style="font-size: 1.25rem; vertical-align: middle; margin-right: 8px;">tune</span>控制参数</h3>', unsafe_allow_html=True)
 
+        # 从 session_state 获取预设值，如果没有则使用默认值
+        default_use_safety = st.session_state.get('use_safety_ceiling', False)
+        default_use_buffer = st.session_state.get('use_buffer', True)
+        default_confidence = st.session_state.get('confidence', 99.0)
+
         # 安全上界开关（核心参数）
         use_safety_ceiling = st.checkbox(
             "使用安全上界 U_A",
-            value=False,
+            value=default_use_safety,
             help="关闭后仅使用性能上界U_B，可大幅提高光伏利用率（90%以上）。开启后更保守但更安全。"
         )
 
-        use_buffer = st.checkbox("启用安全余量 Buffer", value=True, help="开启后会在置信下界基础上再减去Buffer")
+        use_buffer = st.checkbox("启用安全余量 Buffer", value=default_use_buffer, help="开启后会在置信下界基础上再减去Buffer")
         buffer = st.number_input("安全余量 Buffer (kW)", min_value=0.0, max_value=50.0, value=5.0, step=0.5) if use_buffer else 5.0
 
-        confidence_percent = st.slider("置信度", min_value=80.0, max_value=99.99, value=99.0, step=0.1, format="%.2f%%")
+        confidence_percent = st.slider("置信度", min_value=80.0, max_value=99.99, value=default_confidence, step=0.1, format="%.2f%%")
         alpha = 1 - (confidence_percent / 100.0)
         st.caption(f"α = {alpha:.4f}")
 
@@ -194,14 +248,30 @@ def render_metrics(metrics):
 
     col1, col2, col3, col4 = st.columns(4)
 
+    # 动态颜色警告系统
+    curtailment_rate = metrics['curtailment_rate']
+    if curtailment_rate >= 10.0:
+        curtail_color = "red"
+        curtail_delta_color = "negative"
+        curtail_icon = "warning"
+    elif curtailment_rate >= 5.0:
+        curtail_color = "orange"
+        curtail_delta_color = "negative"
+        curtail_icon = "wb_sunny"
+    else:
+        curtail_color = "green"
+        curtail_delta_color = "positive"
+        curtail_icon = "wb_sunny"
+
     with col1:
-        st.markdown(create_metric_card("总弃光量", f"{metrics['total_curtailment_kwh']:.2f} kWh",
-                                      f"{metrics['curtailment_rate']:.2f}%", "neutral", "wb_sunny", "orange"),
+        st.markdown(create_metric_card("弃光率", f"{metrics['curtailment_rate']:.2f}%",
+                                      f"总量: {metrics['total_curtailment_kwh']:.1f} kWh",
+                                      curtail_delta_color, curtail_icon, curtail_color, featured=True),
                    unsafe_allow_html=True)
 
     with col2:
         st.markdown(create_metric_card("最大弃光功率", f"{metrics['max_curtailment_kw']:.2f} kW",
-                                      None, "neutral", "bolt", "red"), unsafe_allow_html=True)
+                                      None, "neutral", "bolt", "orange"), unsafe_allow_html=True)
 
     with col3:
         bypass_color = "red" if metrics['safety_bypass_count'] > 0 else "green"
@@ -233,6 +303,64 @@ def render_results():
     metrics = st.session_state['metrics']
     params_used = st.session_state.get('params_used', None)
 
+    # 视图模式切换
+    st.markdown('<div style="background: linear-gradient(135deg, rgba(26, 115, 232, 0.05) 0%, rgba(66, 133, 244, 0.08) 100%); border-radius: 8px; padding: 16px; margin-bottom: 20px;">', unsafe_allow_html=True)
+    col_mode1, col_mode2, col_mode3 = st.columns([1, 1, 2])
+    with col_mode1:
+        view_mode = st.selectbox(
+            "📊 视图模式",
+            ["标准视图", "仪表盘视图"],
+            label_visibility="collapsed",
+            key="view_mode"
+        )
+    with col_mode2:
+        st.markdown(f'<div class="view-mode-label">当前: <b>{view_mode}</b></div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # 根据模式渲染不同视图
+    if view_mode == "仪表盘视图":
+        render_dashboard_mode(metrics)
+    else:
+        render_standard_mode(history, metrics, params_used)
+
+
+def render_dashboard_mode(metrics: dict):
+    """渲染仪表盘模式"""
+    st.markdown('<h2><span class="material-icons" style="vertical-align: middle; margin-right: 8px;">speed</span>实时监控仪表盘</h2>', unsafe_allow_html=True)
+
+    dashboards = create_dashboard_view(metrics)
+
+    # 第一行：最重要的指标 - 弃光率（占据更大空间）
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.plotly_chart(dashboards['curtailment_rate'], use_container_width=True)
+    with col2:
+        st.plotly_chart(dashboards['safety_bypass'], use_container_width=True)
+
+    # 第二行：其他指标
+    col3, col4 = st.columns(2)
+    with col3:
+        st.plotly_chart(dashboards['max_curtailment'], use_container_width=True)
+    with col4:
+        st.plotly_chart(dashboards['avg_up_rate'], use_container_width=True)
+
+    # 详细数据表格
+    st.markdown("---")
+    st.markdown('<h3><span class="material-icons" style="font-size: 1.25rem; vertical-align: middle; margin-right: 8px;">table_chart</span>详细指标</h3>', unsafe_allow_html=True)
+
+    col_d1, col_d2, col_d3, col_d4 = st.columns(4)
+    with col_d1:
+        st.metric("总弃光量", f"{metrics['total_curtailment_kwh']:.2f} kWh")
+    with col_d2:
+        st.metric("最大上调速率", f"{metrics['max_up_rate']:.2f} kW/s")
+    with col_d3:
+        st.metric("平均下调速率", f"{metrics['avg_down_rate']:.2f} kW/s")
+    with col_d4:
+        st.metric("最大下调速率", f"{metrics['max_down_rate']:.2f} kW/s")
+
+
+def render_standard_mode(history: dict, metrics: dict, params_used):
+    """渲染标准模式"""
     render_metrics(metrics)
 
     # 时间序列图
@@ -252,21 +380,25 @@ def render_results():
         render_debug_info(history)
 
     fig_timeseries = create_time_series_plot(history, show_stukf=show_stukf, show_bounds=show_bounds, height=chart_height)
-    st.plotly_chart(fig_timeseries, use_container_width=True)
+    # 使用config参数启用全屏等功能
+    st.plotly_chart(fig_timeseries, use_container_width=True, config=getattr(fig_timeseries, '_config', {}))
 
     # 其他图表
     st.markdown("---")
     st.markdown('<h2><span class="material-icons" style="vertical-align: middle; margin-right: 8px;">insights</span>控制效果分析</h2>', unsafe_allow_html=True)
-    st.plotly_chart(create_control_effectiveness_plot(history, height=500), use_container_width=True)
+    fig_effectiveness = create_control_effectiveness_plot(history, height=500)
+    st.plotly_chart(fig_effectiveness, use_container_width=True, config=getattr(fig_effectiveness, '_config', {}))
 
     st.markdown("---")
     st.markdown('<h2><span class="material-icons" style="vertical-align: middle; margin-right: 8px;">wb_sunny</span>弃光分析</h2>', unsafe_allow_html=True)
     P_max_val = params_used.P_max if params_used else 100.0
-    st.plotly_chart(create_curtailment_analysis(history, P_max_val, height=400), use_container_width=True)
+    fig_curtailment = create_curtailment_analysis(history, P_max_val, height=400)
+    st.plotly_chart(fig_curtailment, use_container_width=True, config=getattr(fig_curtailment, '_config', {}))
 
     st.markdown("---")
     st.markdown('<h2><span class="material-icons" style="vertical-align: middle; margin-right: 8px;">bar_chart</span>变化率分布统计</h2>', unsafe_allow_html=True)
-    st.plotly_chart(create_ramp_rate_distribution(history, height=400), use_container_width=True)
+    fig_ramp = create_ramp_rate_distribution(history, height=400)
+    st.plotly_chart(fig_ramp, use_container_width=True, config=getattr(fig_ramp, '_config', {}))
 
     render_download_section(history, metrics)
 
@@ -358,8 +490,16 @@ def render_welcome_screen():
 
 def main():
     """主函数"""
-    st.markdown('<h1 style="margin-bottom: 0.5rem;"><span class="material-icons" style="font-size: 2.5rem; vertical-align: middle; margin-right: 12px; color: #1A73E8;">flash_on</span> 防逆流控制系统</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="margin-top: 0; margin-bottom: 1rem; color: #5f6368;">基于 STUKF 算法的光伏防逆流控制可视化平台</p>', unsafe_allow_html=True)
+    # 初始化主题状态（必须在最前面）
+    if 'dark_mode' not in st.session_state:
+        st.session_state['dark_mode'] = False
+
+    # 全局应用深色模式CSS（如果启用）
+    if st.session_state.get('dark_mode', False):
+        st.markdown(get_dark_theme_css(), unsafe_allow_html=True)
+
+    st.markdown('<h1 style="margin-bottom: 0.5rem; font-size: 2.5rem; font-weight: 500;"><span class="material-icons" style="font-size: 3rem; vertical-align: middle; margin-right: 12px; color: #1A73E8;">flash_on</span>防逆流控制系统 V2.0</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="app-subtitle">基于 STUKF 算法的光伏防逆流控制可视化平台</p>', unsafe_allow_html=True)
     st.markdown("---")
 
     # 侧边栏参数设置

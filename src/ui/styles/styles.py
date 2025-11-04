@@ -110,7 +110,29 @@ MATERIAL_STYLE_CSS = """
 [data-testid="stSidebar"] h3 {
     color: var(--text-primary);
     font-weight: 500;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;  /* 增加标题下方间距 */
+}
+
+/* 侧边栏间距优化 */
+[data-testid="stSidebar"] .stCheckbox,
+[data-testid="stSidebar"] .stNumberInput,
+[data-testid="stSidebar"] .stSlider,
+[data-testid="stSidebar"] .stSelectbox {
+    margin-bottom: 1.25rem;  /* 增加组件之间的间距 */
+}
+
+/* 侧边栏分组卡片 */
+[data-testid="stSidebar"] .element-container {
+    position: relative;
+}
+
+/* 为分隔线后的第一组元素添加背景卡片效果 */
+[data-testid="stSidebar"] hr + div {
+    background: rgba(26, 115, 232, 0.04);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin: 12px 0;
+    border: 1px solid rgba(26, 115, 232, 0.1);
 }
 
 /* ===== 固定的侧边栏切换按钮 ===== */
@@ -145,27 +167,27 @@ MATERIAL_STYLE_CSS = """
 
 /* ===== 标题样式 ===== */
 h1 {
-    font-size: 2.125rem;
-    font-weight: 400;
+    font-size: 2.5rem;  /* 40px - 主标题加大 */
+    font-weight: 500;   /* 加粗 */
     color: var(--text-primary);
     margin-bottom: 0.5rem;
     line-height: 1.2;
 }
 
 h2 {
-    font-size: 1.5rem;
+    font-size: 1.75rem;  /* 28px - 区域标题 */
     font-weight: 500;
     color: var(--text-primary);
     margin-top: 2rem;
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
 }
 
 h3 {
-    font-size: 1.25rem;
+    font-size: 1.5rem;  /* 24px - 子标题 */
     font-weight: 500;
     color: var(--text-primary);
     margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 /* ===== 文本样式 ===== */
@@ -174,6 +196,23 @@ p {
     line-height: 1.6;
     color: var(--text-primary);
     margin-bottom: 1rem;
+}
+
+/* 应用副标题 */
+.app-subtitle {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+    font-size: 1.125rem;
+    line-height: 1.6;
+}
+
+/* 视图模式标签 */
+.view-mode-label {
+    padding: 10px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-secondary);
 }
 
 /* ===== 确保所有文本都有足够的对比度 ===== */
@@ -229,27 +268,102 @@ pre code {
 }
 
 /* ===== Material Design 按钮样式 ===== */
-.stButton > button {
+/* Primary 按钮 - 主要操作 */
+.stButton > button[kind="primary"],
+.stButton > button[data-testid="baseButton-primary"] {
     background: var(--md-blue-primary);
     color: white;
     border: none;
-    border-radius: var(--radius-sm);
-    padding: 10px 24px;
-    font-size: 0.875rem;
-    font-weight: 500;
+    border-radius: var(--radius-md);
+    padding: 16px 32px;  /* 主按钮更大 */
+    font-size: 1.125rem;  /* 18px - 主按钮文字更大 */
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.0892857143em;
     transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--shadow-2);
+    min-height: 56px;  /* 主按钮最高 */
+}
+
+.stButton > button[kind="primary"]:hover,
+.stButton > button[data-testid="baseButton-primary"]:hover {
+    background: var(--md-blue-dark);
+    box-shadow: var(--shadow-4);
+    transform: translateY(-2px);
+}
+
+/* Secondary 按钮 - 次要操作 */
+.stButton > button[kind="secondary"],
+.stButton > button[data-testid="baseButton-secondary"] {
+    background: transparent;
+    color: var(--md-blue-primary);
+    border: 2px solid var(--md-blue-primary);
+    border-radius: var(--radius-md);
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.0892857143em;
+    transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+    min-height: 48px;
+}
+
+.stButton > button[kind="secondary"]:hover,
+.stButton > button[data-testid="baseButton-secondary"]:hover {
+    background: rgba(26, 115, 232, 0.08);
+    border-color: var(--md-blue-dark);
+    color: var(--md-blue-dark);
+}
+
+/* Tertiary/Text 按钮 - 辅助操作 */
+.stButton > button[kind="tertiary"],
+.stButton > button:not([kind]) {
+    background: transparent;
+    color: var(--md-blue-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 10px 20px;
+    font-size: 0.9375rem;  /* 15px */
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.0892857143em;
+    transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+    min-height: 40px;
+}
+
+.stButton > button[kind="tertiary"]:hover,
+.stButton > button:not([kind]):hover {
+    background: rgba(26, 115, 232, 0.08);
+    transform: none;
+}
+
+/* 默认按钮（如果没有特殊指定） */
+.stButton > button {
+    background: var(--md-blue-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 14px 28px;
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.0892857143em;
+    transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-2);
+    min-height: 48px;
 }
 
 .stButton > button:hover {
     background: var(--md-blue-dark);
     box-shadow: var(--shadow-3);
+    transform: translateY(-2px);
 }
 
 .stButton > button:active {
     box-shadow: var(--shadow-4);
+    transform: translateY(0);
 }
 
 /* ===== 输入控件样式 ===== */
@@ -267,9 +381,10 @@ pre code {
 
 /* 输入框标签 */
 .stNumberInput label, .stTextInput label, .stSelectbox label, .stSlider label {
-    font-size: 1rem !important;
+    font-size: 1.125rem !important;  /* 18px - 增大标签字体 */
     font-weight: 500 !important;
     color: var(--text-primary) !important;
+    margin-bottom: 0.5rem !important;
 }
 
 .stNumberInput > div > div > input:focus,
@@ -292,9 +407,9 @@ pre code {
 /* ===== 自定义 Material Design 指标卡片 ===== */
 .metric-card {
     background: var(--bg-primary);
-    border-radius: var(--radius-md);
-    padding: 16px;
-    box-shadow: var(--shadow-1);
+    border-radius: var(--radius-lg);  /* 增大圆角 */
+    padding: 20px;  /* 增大内边距 */
+    box-shadow: var(--shadow-2);  /* 加强阴影 */
     border: 1px solid var(--border-color);
     transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
     height: 100%;
@@ -303,18 +418,60 @@ pre code {
 }
 
 .metric-card:hover {
-    box-shadow: var(--shadow-3);
-    transform: translateY(-2px);
+    box-shadow: var(--shadow-4);  /* 悬停时更强的阴影 */
+    transform: translateY(-4px);  /* 更明显的上移效果 */
+}
+
+/* 重点卡片 - 渐变背景 */
+.metric-card-featured {
+    background: linear-gradient(135deg, rgba(26, 115, 232, 0.05) 0%, rgba(66, 133, 244, 0.08) 100%);
+    border-radius: var(--radius-lg);
+    padding: 24px;  /* 更大的内边距 */
+    box-shadow: var(--shadow-3);  /* 更强的初始阴影 */
+    border: 2px solid rgba(26, 115, 232, 0.2);  /* 彩色边框 */
+    transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+/* 重点卡片添加光效 */
+.metric-card-featured::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.metric-card-featured:hover::before {
+    opacity: 1;
+}
+
+.metric-card-featured:hover {
+    box-shadow: 0 8px 24px rgba(26, 115, 232, 0.25);
+    transform: translateY(-6px) scale(1.02);  /* 更明显的悬停效果 */
+    border-color: rgba(26, 115, 232, 0.4);
 }
 
 .metric-icon {
-    width: 40px;
-    height: 40px;
+    width: 48px;  /* 增大图标容器 */
+    height: 48px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 12px;
+    margin-bottom: 16px;  /* 增加下方间距 */
+}
+
+.metric-icon .material-icons {
+    font-size: 28px;  /* 增大图标大小 */
 }
 
 .metric-icon.blue {
@@ -338,25 +495,49 @@ pre code {
 }
 
 .metric-label {
-    font-size: 0.875rem;
-    font-weight: 500;
+    font-size: 1rem;  /* 16px - 保持标签字体适中 */
+    font-weight: 600;  /* 加粗 */
     color: var(--text-primary);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 8px;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;  /* 增加下方间距 */
 }
 
 .metric-value {
-    font-size: 2rem;
-    font-weight: 500;
+    font-size: 2.75rem;  /* 44px - 显著增大数值字体！ */
+    font-weight: 600;  /* 加粗数值 */
     color: var(--text-primary);
-    margin-bottom: 4px;
+    margin-bottom: 8px;
     line-height: 1;
 }
 
+/* 数值滚动动画 */
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.metric-value {
+    animation: countUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* 重点卡片的数值更醒目 */
+.metric-card-featured .metric-value {
+    font-size: 3rem;  /* 48px - 重点卡片数值更大！ */
+    color: var(--md-blue-primary);
+    text-shadow: 0 2px 4px rgba(26, 115, 232, 0.1);
+    animation: countUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
 .metric-delta {
-    font-size: 1rem;
-    font-weight: 400;
+    font-size: 1.125rem;  /* 18px - 略微增大 */
+    font-weight: 500;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -419,13 +600,19 @@ pre code {
 
 /* ===== 复选框样式 ===== */
 .stCheckbox {
-    font-size: 1rem;
+    font-size: 1.125rem;  /* 18px - 增大字体 */
     color: var(--text-primary);
 }
 
 .stCheckbox label {
-    font-size: 1rem !important;
+    font-size: 1.125rem !important;  /* 18px - 与其他标签一致 */
+    font-weight: 500 !important;
     color: var(--text-primary) !important;
+}
+
+.stCheckbox > label > div {
+    padding-top: 4px;  /* 增加垂直间距 */
+    padding-bottom: 4px;
 }
 
 /* ===== 确保所有 Streamlit 组件的文本颜色 ===== */
@@ -459,7 +646,16 @@ hr {
 
 /* ===== 列间距调整 ===== */
 [data-testid="column"] {
-    padding: 0 8px;
+    padding: 0 12px;  /* 增加列间距 */
+}
+
+/* 第一列左对齐，最后一列右对齐 */
+[data-testid="column"]:first-child {
+    padding-left: 0;
+}
+
+[data-testid="column"]:last-child {
+    padding-right: 0;
 }
 
 /* ===== 加载动画 ===== */

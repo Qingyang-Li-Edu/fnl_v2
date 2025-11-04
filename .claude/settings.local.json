@@ -9,7 +9,12 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(bash:*)",
-      "Bash(taskkill //F //PID 5668)"
+      "Bash(taskkill //F //PID 5668)",
+      "Bash(npx claude-code-templates@latest --help)",
+      "Bash(npx claude-code-templates@latest:*)",
+      "Bash(dir:*)",
+      "Bash(taskkill //F //PID 40800)",
+      "Bash(taskkill //F //PID 46232)"
     ],
     "deny": [],
     "ask": []
