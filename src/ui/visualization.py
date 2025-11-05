@@ -97,7 +97,7 @@ def create_ramp_rate_distribution(history: dict, height: int = 400):
     up_rates = ramp_rates[ramp_rates > 0]
     down_rates = np.abs(ramp_rates[ramp_rates < 0])
 
-    fig = make_subplots(rows=1, cols=2, subplot_titles=('上调速率分布', '下调速率分布'), horizontal_spacing=0.12)
+    fig = make_subplots(rows=1, cols=2, horizontal_spacing=0.12)
 
     fig.add_trace(go.Histogram(x=up_rates, nbinsx=50, name='上调速率', marker_color=colors['blue'], opacity=0.7,
                               hovertemplate='速率: %{x:.2f} kW/s<br>频次: %{y}<extra></extra>'), row=1, col=1)
@@ -106,8 +106,8 @@ def create_ramp_rate_distribution(history: dict, height: int = 400):
                               hovertemplate='速率: %{x:.2f} kW/s<br>频次: %{y}<extra></extra>'), row=1, col=2)
 
     fig.update_layout(showlegend=False)
-    fig.update_xaxes(title_text="速率 (kW/s)", row=1, col=1)
-    fig.update_xaxes(title_text="速率 (kW/s)", row=1, col=2)
+    fig.update_xaxes(title_text="上调速率 (kW/s)", row=1, col=1)
+    fig.update_xaxes(title_text="下调速率 (kW/s)", row=1, col=2)
     fig.update_yaxes(title_text="频次", row=1, col=1)
     fig.update_yaxes(title_text="频次", row=1, col=2)
 
@@ -115,27 +115,27 @@ def create_ramp_rate_distribution(history: dict, height: int = 400):
 
 
 def create_curtailment_analysis(history: dict, P_max: float, height: int = 400):
-    """创建弃光分析图"""
+    """创建光伏容量利用分析图"""
     P_cmd = history['P_cmd']
     time = history['time']
 
-    curtailment = np.maximum(P_max - P_cmd, 0)
+    unused_capacity = np.maximum(P_max - P_cmd, 0)
 
-    fig = make_subplots(rows=1, cols=2, subplot_titles=('弃光功率时间序列', '弃光功率分布'),
+    fig = make_subplots(rows=1, cols=2,
                        specs=[[{"type": "scatter"}, {"type": "histogram"}]], horizontal_spacing=0.12)
 
-    fig.add_trace(go.Scatter(x=time, y=curtailment, mode='lines', name='弃光功率',
-                            line=dict(color=colors['red'], width=2), fill='tozeroy', fillcolor=f'rgba(255, 59, 48, 0.2)',
-                            hovertemplate='时间: %{x:.1f}s<br>弃光: %{y:.2f} kW<extra></extra>'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=time, y=unused_capacity, mode='lines', name='未利用容量',
+                            line=dict(color=colors['orange'], width=2), fill='tozeroy', fillcolor=f'rgba(255, 149, 0, 0.2)',
+                            hovertemplate='时间: %{x:.1f}s<br>未利用: %{y:.2f} kW<extra></extra>'), row=1, col=1)
 
-    fig.add_trace(go.Histogram(x=curtailment[curtailment > 0], nbinsx=50, name='弃光分布',
-                              marker_color=colors['red'], opacity=0.7,
-                              hovertemplate='弃光: %{x:.2f} kW<br>频次: %{y}<extra></extra>'), row=1, col=2)
+    fig.add_trace(go.Histogram(x=unused_capacity[unused_capacity > 0], nbinsx=50, name='容量分布',
+                              marker_color=colors['orange'], opacity=0.7,
+                              hovertemplate='未利用: %{x:.2f} kW<br>频次: %{y}<extra></extra>'), row=1, col=2)
 
     fig.update_layout(showlegend=False)
     fig.update_xaxes(title_text="时间 (秒)", row=1, col=1)
-    fig.update_xaxes(title_text="弃光功率 (kW)", row=1, col=2)
-    fig.update_yaxes(title_text="弃光功率 (kW)", row=1, col=1)
+    fig.update_xaxes(title_text="未利用容量 (kW)", row=1, col=2)
+    fig.update_yaxes(title_text="未利用容量 (kW)", row=1, col=1)
     fig.update_yaxes(title_text="频次", row=1, col=2)
 
     return apply_chart_theme(fig, height)

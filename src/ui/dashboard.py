@@ -89,28 +89,19 @@ def create_dashboard_view(metrics: dict) -> dict:
     """
     dashboards = {}
 
-    # 弃光率仪表盘（最重要）
-    curtailment_rate = metrics['curtailment_rate']
-    curtailment_color_ranges = [
-        (5.0, "#34A853"),    # <5%: 绿色（优秀）
-        (10.0, "#F9AB00"),   # 5-10%: 黄色（警告）
-        (100.0, "#EA4335")   # >10%: 红色（严重）
+    # 负载跟踪率仪表盘（最重要）
+    load_tracking_rate = metrics['load_tracking_rate']
+    tracking_color_ranges = [
+        (90.0, "#EA4335"),   # <90%: 红色（差）
+        (95.0, "#F9AB00"),   # 90-95%: 黄色（良好）
+        (100.0, "#34A853")   # >95%: 绿色（优秀）
     ]
-    dashboards['curtailment_rate'] = create_gauge_chart(
-        value=curtailment_rate,
-        title="弃光率",
-        max_value=20.0,
-        color_ranges=curtailment_color_ranges,
-        unit="%"
-    )
-
-    # 最大弃光功率仪表盘
-    max_curtailment_kw = metrics['max_curtailment_kw']
-    dashboards['max_curtailment'] = create_gauge_chart(
-        value=max_curtailment_kw,
-        title="最大弃光功率",
+    dashboards['load_tracking_rate'] = create_gauge_chart(
+        value=load_tracking_rate,
+        title="负载跟踪率",
         max_value=100.0,
-        unit=" kW"
+        color_ranges=tracking_color_ranges,
+        unit="%"
     )
 
     # 安全旁路次数仪表盘
@@ -133,6 +124,15 @@ def create_dashboard_view(metrics: dict) -> dict:
     dashboards['avg_up_rate'] = create_gauge_chart(
         value=avg_up_rate,
         title="平均上调速率",
+        max_value=20.0,
+        unit=" kW/s"
+    )
+
+    # 平均下调速率仪表盘
+    avg_down_rate = metrics['avg_down_rate']
+    dashboards['avg_down_rate'] = create_gauge_chart(
+        value=avg_down_rate,
+        title="平均下调速率",
         max_value=20.0,
         unit=" kW/s"
     )

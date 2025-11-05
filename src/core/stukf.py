@@ -160,6 +160,16 @@ class STUKF:
             measurement: 测量的负载值
             time: 当前时间戳
         """
+        # 【第1轮优化】计算负载变化率（用于自适应）
+        dt = time - self.time_history[-1] if len(self.time_history) > 0 else 1.0
+        dt = max(0.01, dt)  # 避免除零
+
+        if len(self.load_history) > 0:
+            dL = measurement - self.load_history[-1]
+            dL_dt = dL / dt  # 负载变化率 (kW/s)
+        else:
+            dL_dt = 0.0
+
         # 生成 sigma 点
         sigma_points = self._generate_sigma_points()
 
@@ -190,10 +200,22 @@ class STUKF:
         # 更新协方差
         self.P = self.P - K[:, np.newaxis] * Pzz * K[np.newaxis, :]
 
-        # 应用记忆衰减：增大协方差矩阵，降低对旧状态的信任
-        # decay < 1.0 时，P会被放大，相当于增加不确定性
-        # 这迫使滤波器更信任新测量值而非旧状态
-        self.P = self.P / self.memory_decay
+        # 【第1轮优化】自适应协方差调整（安全版本）
+        # 检测负载突变，适度增加不确定性以提高响应速度
+        abs_dL_dt = abs(dL_dt)
+
+        if abs_dL_dt > 5.0:  # 负载变化率超过 5 kW/s（突变）
+            # 适度增加位置不确定性（1.5倍，而非指数膨胀）
+            inflation_factor = min(1.5, 1.0 + abs_dL_dt / 50.0)  # 动态膨胀系数
+            self.P[0, 0] *= inflation_factor
+
+        # 协方差上限保护（防止爆炸）
+        max_variance = 1000.0  # 位置方差上限
+        self.P[0, 0] = min(self.P[0, 0], max_variance)
+
+        # 速度和加速度方差也设置上限
+        self.P[1, 1] = min(self.P[1, 1], 100.0)   # 速度方差上限
+        self.P[2, 2] = min(self.P[2, 2], 10.0)    # 加速度方差上限
 
         # 保存历史
         self.load_history.append(measurement)

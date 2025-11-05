@@ -64,11 +64,11 @@ def render_sidebar():
 
         col_preset1, col_preset2, col_preset3 = st.columns(3)
         with col_preset1:
-            aggressive_mode = st.button("🔥 激进", help="最大化光伏利用率，关闭安全上界", use_container_width=True)
+            aggressive_mode = st.button("🔥 激进", help="利用率94%，逆流5% - buffer=4.0kW", use_container_width=True)
         with col_preset2:
-            balanced_mode = st.button("⚖️ 平衡", help="平衡性能与安全", use_container_width=True)
+            balanced_mode = st.button("⚖️ 平衡", help="利用率95%，逆流8% - buffer=3.5kW", use_container_width=True)
         with col_preset3:
-            conservative_mode = st.button("🛡️ 保守", help="最大化安全性，启用所有保护", use_container_width=True)
+            conservative_mode = st.button("🛡️ 保守", help="利用率91%，逆流<1% - buffer=6.0kW", use_container_width=True)
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -79,18 +79,21 @@ def render_sidebar():
         if aggressive_mode:
             st.session_state['preset_applied'] = 'aggressive'
             st.session_state['use_safety_ceiling'] = False
-            st.session_state['use_buffer'] = False
-            st.session_state['confidence'] = 95.0
+            st.session_state['use_buffer'] = True
+            st.session_state['buffer'] = 4.0
+            st.session_state['confidence'] = 99.0  # alpha=0.01
         elif balanced_mode:
             st.session_state['preset_applied'] = 'balanced'
-            st.session_state['use_safety_ceiling'] = True
+            st.session_state['use_safety_ceiling'] = False
             st.session_state['use_buffer'] = True
-            st.session_state['confidence'] = 99.0
+            st.session_state['buffer'] = 3.5
+            st.session_state['confidence'] = 99.0  # alpha=0.01
         elif conservative_mode:
             st.session_state['preset_applied'] = 'conservative'
-            st.session_state['use_safety_ceiling'] = True
+            st.session_state['use_safety_ceiling'] = False
             st.session_state['use_buffer'] = True
-            st.session_state['confidence'] = 99.9
+            st.session_state['buffer'] = 6.0
+            st.session_state['confidence'] = 99.0  # alpha=0.01
 
         # 数据输入
         st.markdown('<h3><span class="material-icons" style="font-size: 1.25rem; vertical-align: middle; margin-right: 8px;">folder_open</span>数据输入</h3>', unsafe_allow_html=True)
@@ -127,6 +130,7 @@ def render_sidebar():
         # 从 session_state 获取预设值，如果没有则使用默认值
         default_use_safety = st.session_state.get('use_safety_ceiling', False)
         default_use_buffer = st.session_state.get('use_buffer', True)
+        default_buffer_value = st.session_state.get('buffer', 5.0)
         default_confidence = st.session_state.get('confidence', 99.0)
 
         # 安全上界开关（核心参数）
@@ -137,7 +141,7 @@ def render_sidebar():
         )
 
         use_buffer = st.checkbox("启用安全余量 Buffer", value=default_use_buffer, help="开启后会在置信下界基础上再减去Buffer")
-        buffer = st.number_input("安全余量 Buffer (kW)", min_value=0.0, max_value=50.0, value=5.0, step=0.5) if use_buffer else 5.0
+        buffer = st.number_input("安全余量 Buffer (kW)", min_value=0.0, max_value=50.0, value=default_buffer_value, step=0.5) if use_buffer else default_buffer_value
 
         confidence_percent = st.slider("置信度", min_value=80.0, max_value=99.99, value=default_confidence, step=0.1, format="%.2f%%")
         alpha = 1 - (confidence_percent / 100.0)
@@ -246,48 +250,75 @@ def render_metrics(metrics):
     """渲染性能指标卡片"""
     st.markdown('<h2><span class="material-icons" style="vertical-align: middle; margin-right: 8px;">assessment</span>关键性能指标</h2>', unsafe_allow_html=True)
 
+    # 第一行：主要指标
     col1, col2, col3, col4 = st.columns(4)
 
-    # 动态颜色警告系统
-    curtailment_rate = metrics['curtailment_rate']
-    if curtailment_rate >= 10.0:
-        curtail_color = "red"
-        curtail_delta_color = "negative"
-        curtail_icon = "warning"
-    elif curtailment_rate >= 5.0:
-        curtail_color = "orange"
-        curtail_delta_color = "negative"
-        curtail_icon = "wb_sunny"
+    # 动态颜色警告系统（负载跟踪率：越高越好）
+    load_tracking_rate = metrics['load_tracking_rate']
+    if load_tracking_rate >= 95.0:
+        tracking_color = "green"
+        tracking_delta_color = "positive"
+        tracking_icon = "check_circle"
+    elif load_tracking_rate >= 90.0:
+        tracking_color = "blue"
+        tracking_delta_color = "neutral"
+        tracking_icon = "analytics"
     else:
-        curtail_color = "green"
-        curtail_delta_color = "positive"
-        curtail_icon = "wb_sunny"
+        tracking_color = "orange"
+        tracking_delta_color = "negative"
+        tracking_icon = "warning"
 
     with col1:
-        st.markdown(create_metric_card("弃光率", f"{metrics['curtailment_rate']:.2f}%",
-                                      f"总量: {metrics['total_curtailment_kwh']:.1f} kWh",
-                                      curtail_delta_color, curtail_icon, curtail_color, featured=True),
+        st.markdown(create_metric_card("负载跟踪率", f"{metrics['load_tracking_rate']:.2f}%",
+                                      "控制效果评估",
+                                      tracking_delta_color, tracking_icon, tracking_color, featured=True),
                    unsafe_allow_html=True)
 
+    # 逆流指标
+    backflow_ratio = metrics['backflow_ratio']
+    if backflow_ratio < 1.0:
+        backflow_color = "green"
+        backflow_delta_color = "positive"
+        backflow_icon = "check_circle"
+    elif backflow_ratio < 5.0:
+        backflow_color = "blue"
+        backflow_delta_color = "neutral"
+        backflow_icon = "info"
+    elif backflow_ratio < 10.0:
+        backflow_color = "orange"
+        backflow_delta_color = "negative"
+        backflow_icon = "warning"
+    else:
+        backflow_color = "red"
+        backflow_delta_color = "negative"
+        backflow_icon = "error"
+
     with col2:
-        st.markdown(create_metric_card("最大弃光功率", f"{metrics['max_curtailment_kw']:.2f} kW",
-                                      None, "neutral", "bolt", "orange"), unsafe_allow_html=True)
+        st.markdown(create_metric_card("逆流次数", f"{metrics['backflow_count']}",
+                                      f"占比: {metrics['backflow_ratio']:.2f}%",
+                                      backflow_delta_color, backflow_icon, backflow_color),
+                   unsafe_allow_html=True)
 
     with col3:
+        st.markdown(create_metric_card("最大逆流功率", f"{metrics['max_backflow_kw']:.2f} kW",
+                                      None, "neutral", "bolt", "orange"), unsafe_allow_html=True)
+
+    with col4:
         bypass_color = "red" if metrics['safety_bypass_count'] > 0 else "green"
         bypass_delta_color = "negative" if metrics['safety_bypass_count'] > 0 else "positive"
         st.markdown(create_metric_card("安全旁路次数", f"{metrics['safety_bypass_count']}", "安全触发",
                                       bypass_delta_color, "security", bypass_color), unsafe_allow_html=True)
 
-    with col4:
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 第二行：其他指标
+    col5, col6, col7, col8 = st.columns(4)
+    with col5:
         st.markdown(create_metric_card("平均上调速率", f"{metrics['avg_up_rate']:.2f} kW/s",
                                       f"最大: {metrics['max_up_rate']:.2f}", "neutral", "trending_up", "blue"),
                    unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    col5, col6, col7, col8 = st.columns(4)
-    with col5:
+    with col6:
         st.markdown(create_metric_card("平均下调速率", f"{metrics['avg_down_rate']:.2f} kW/s",
                                       f"最大: {metrics['max_down_rate']:.2f}", "neutral", "trending_down", "green"),
                    unsafe_allow_html=True)
@@ -330,19 +361,19 @@ def render_dashboard_mode(metrics: dict):
 
     dashboards = create_dashboard_view(metrics)
 
-    # 第一行：最重要的指标 - 弃光率（占据更大空间）
+    # 第一行：最重要的指标 - 负载跟踪率（占据更大空间）
     col1, col2 = st.columns([2, 1])
     with col1:
-        st.plotly_chart(dashboards['curtailment_rate'], use_container_width=True)
+        st.plotly_chart(dashboards['load_tracking_rate'], use_container_width=True)
     with col2:
         st.plotly_chart(dashboards['safety_bypass'], use_container_width=True)
 
     # 第二行：其他指标
     col3, col4 = st.columns(2)
     with col3:
-        st.plotly_chart(dashboards['max_curtailment'], use_container_width=True)
-    with col4:
         st.plotly_chart(dashboards['avg_up_rate'], use_container_width=True)
+    with col4:
+        st.plotly_chart(dashboards['avg_down_rate'], use_container_width=True)
 
     # 详细数据表格
     st.markdown("---")
@@ -350,7 +381,7 @@ def render_dashboard_mode(metrics: dict):
 
     col_d1, col_d2, col_d3, col_d4 = st.columns(4)
     with col_d1:
-        st.metric("总弃光量", f"{metrics['total_curtailment_kwh']:.2f} kWh")
+        st.metric("负载跟踪率", f"{metrics['load_tracking_rate']:.2f}%")
     with col_d2:
         st.metric("最大上调速率", f"{metrics['max_up_rate']:.2f} kW/s")
     with col_d3:
@@ -390,7 +421,8 @@ def render_standard_mode(history: dict, metrics: dict, params_used):
     st.plotly_chart(fig_effectiveness, use_container_width=True, config=getattr(fig_effectiveness, '_config', {}))
 
     st.markdown("---")
-    st.markdown('<h2><span class="material-icons" style="vertical-align: middle; margin-right: 8px;">wb_sunny</span>弃光分析</h2>', unsafe_allow_html=True)
+    st.markdown('<h2><span class="material-icons" style="vertical-align: middle; margin-right: 8px;">battery_charging_full</span>光伏容量利用分析</h2>', unsafe_allow_html=True)
+    st.caption("注：在直接负载跟踪模式下，光伏输出不超过负载需求，未利用容量为设计行为而非弃光")
     P_max_val = params_used.P_max if params_used else 100.0
     fig_curtailment = create_curtailment_analysis(history, P_max_val, height=400)
     st.plotly_chart(fig_curtailment, use_container_width=True, config=getattr(fig_curtailment, '_config', {}))

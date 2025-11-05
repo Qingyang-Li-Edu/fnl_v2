@@ -9,7 +9,7 @@ echo 正在启动...
 echo.
 
 REM 运行应用
-python -m streamlit run src/ui/app.py --server.port=8501
+uv run streamlit run src/ui/app.py --server.port=8501
 
 echo.
 echo 应用已停止

@@ -39,8 +39,7 @@ def apply_chart_theme(fig, height: int = 600, enable_fullscreen: bool = True):
             size=13,
             color="#202124"
         ),
-        margin=dict(l=70, r=50, t=70, b=70),
-        title_font=dict(size=18, color="#202124", family="Roboto"),
+        margin=dict(l=70, r=50, t=30, b=70),
         hoverlabel=dict(
             bgcolor="white",
             font_size=13,

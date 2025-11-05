@@ -4,11 +4,19 @@
 
 import streamlit as st
 from src.core import V5AntiBackflowController, ControlParams
+from src.utils.logging_config import setup_logger
 import pandas as pd
 
 
 def run_simulation(df: pd.DataFrame, params: ControlParams) -> V5AntiBackflowController:
     """运行控制仿真"""
+    # 初始化日志系统
+    logger = setup_logger("v5_anti_backflow")
+    logger.info("开始运行仿真")
+    logger.info(f"数据长度: {len(df)} 个时间步")
+    logger.info(f"控制参数: use_safety_ceiling={params.use_safety_ceiling}, "
+               f"use_buffer={params.use_buffer}, alpha={params.alpha}")
+
     controller = V5AntiBackflowController(
         params=params,
         initial_load=df['load'].iloc[0],
@@ -32,5 +40,12 @@ def run_simulation(df: pd.DataFrame, params: ControlParams) -> V5AntiBackflowCon
 
     progress_bar.empty()
     status_text.empty()
+
+    # 记录仿真完成信息
+    history = controller.get_history()
+    logger.info("仿真完成")
+    logger.info(f"平均PV限发指令: {history['P_cmd'].mean():.2f}kW")
+    logger.info(f"最大PV限发指令: {history['P_cmd'].max():.2f}kW")
+    logger.info(f"PV限发指令为0的次数: {(history['P_cmd'] == 0).sum()}/{len(history['P_cmd'])}")
 
     return controller
